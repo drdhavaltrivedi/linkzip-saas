@@ -60,109 +60,109 @@ export default function Home() {
     if (urls.length === 0) return;
 
     setIsProcessing(true);
-    
-    // Initial State
-    const initialItems: DownloadItem[] = urls.map((url, i) => ({
-      id: Math.random().toString(36).substr(2, 9),
-      url,
-      filename: `Pending...`,
-      status: 'idle',
-      progress: 0,
-      type: 'file'
-    }));
-    setItems(initialItems);
+    setItems([]);
 
     try {
+      // Step 1: Get metadata for all URLs (filename, type, thumbnail)
       const metaRes = await fetch("/api/meta", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ urls }),
       });
       const { results } = await metaRes.json();
-      
-      const zip = new JSZip();
-      
-      const processedItems: DownloadItem[] = items.map((item, i) => ({
-        ...item,
-        filename: results[i]?.filename || `file_${i+1}`,
+
+      // Step 2: Build a clean local list — NO stale state reads
+      const workingItems: DownloadItem[] = urls.map((url, i) => ({
+        id: `item-${i}`,
+        url,
+        filename: results[i]?.filename || `file_${i + 1}`,
         status: (results[i]?.success ? 'downloading' : 'error') as DownloadItem['status'],
         type: results[i]?.type || 'file',
         thumbnail: results[i]?.thumbnail,
-        error: results[i]?.success ? undefined : results[i]?.error
+        progress: 0,
+        error: results[i]?.success ? undefined : results[i]?.error,
       }));
-      setItems(processedItems);
 
-      const downloadPromises = processedItems.map(async (item, i) => {
-        if (!results[i]?.success) return;
+      // Show initial state in UI
+      setItems(workingItems);
+
+      const zip = new JSZip();
+
+      // Step 3: Download each file in parallel
+      await Promise.all(workingItems.map(async (item, i) => {
+        if (item.status === 'error') return;
 
         try {
-          const downloadUrl = item.type === 'video' && (item.url.includes('youtube.com') || item.url.includes('youtu.be'))
+          const isYT = item.url.includes('youtube.com') || item.url.includes('youtu.be');
+          const downloadUrl = (item.type === 'video' && isYT)
             ? `/api/download/youtube?url=${encodeURIComponent(item.url)}`
             : `/api/proxy?url=${encodeURIComponent(item.url)}`;
 
           const res = await fetch(downloadUrl);
-          if (!res.ok) throw new Error("Failed to download");
-          
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+          // Stream the response with progress tracking
           const reader = res.body?.getReader();
           const contentLength = +(res.headers.get('Content-Length') || 0);
-          
           let receivedLength = 0;
-          const chunks = [];
-          
-          while(true) {
-            const {done, value} = await reader!.read();
+          const chunks: any[] = [];
+
+          while (true) {
+            const { done, value } = await reader!.read();
             if (done) break;
             chunks.push(value);
             receivedLength += value.length;
-            
-            setItems(prev => prev.map(p => p.id === item.id ? {
-              ...p, 
-              progress: contentLength ? Math.round((receivedLength / contentLength) * 100) : 50 
-            } : p));
+            const progress = contentLength
+              ? Math.min(99, Math.round((receivedLength / contentLength) * 100))
+              : 50;
+            setItems(prev => prev.map(p => p.id === item.id ? { ...p, progress } : p));
           }
 
           const blob = new Blob(chunks);
-          
+
           if (mode === 'batch') {
+            // Add to ZIP
             zip.file(item.filename, blob);
-          } else if (urls.length === 1) {
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = item.filename;
-            link.click();
+          } else {
+            // Single mode: trigger direct download
+            const objUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = objUrl;
+            a.download = item.filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(objUrl);
           }
 
-          setItems(prev => prev.map(p => p.id === item.id ? {
-            ...p, 
-            status: 'completed',
-            size: receivedLength
-          } : p));
-          
-        } catch (err) {
-          setItems(prev => prev.map(p => p.id === item.id ? {
-            ...p, 
-            status: 'error',
-            error: "Download Failed"
-          } : p));
+          setItems(prev => prev.map(p =>
+            p.id === item.id ? { ...p, status: 'completed', progress: 100, size: receivedLength } : p
+          ));
+        } catch (err: any) {
+          console.error(`Failed ${item.url}:`, err);
+          setItems(prev => prev.map(p =>
+            p.id === item.id ? { ...p, status: 'error', error: err.message || 'Download Failed' } : p
+          ));
         }
-      });
+      }));
 
-      await Promise.all(downloadPromises);
-
+      // Step 4: Generate & trigger ZIP download (batch mode only)
       if (mode === 'batch') {
         setIsZipping(true);
         const content = await zip.generateAsync({ type: "blob" });
-        const url = window.URL.createObjectURL(content);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "LinkZip_Bundle.zip";
-        link.click();
+        const zipUrl = window.URL.createObjectURL(content);
+        const a = document.createElement("a");
+        a.href = zipUrl;
+        a.download = "LinkZip_Bundle.zip";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(zipUrl);
         setIsZipping(false);
       }
-      
+
     } catch (error) {
-      console.error(error);
+      console.error("Process error:", error);
     } finally {
       setIsProcessing(false);
     }
