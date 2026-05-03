@@ -94,14 +94,36 @@ export default function Home() {
 
         try {
           const isYT = item.url.includes('youtube.com') || item.url.includes('youtu.be');
-          const downloadUrl = isYT
-            ? `/api/download/youtube?url=${encodeURIComponent(item.url)}`
-            : `/api/proxy?url=${encodeURIComponent(item.url)}`;
+          let finalDownloadUrl = item.url;
+          let finalFilename = item.filename;
 
-          const res = await fetch(downloadUrl);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          if (isYT) {
+            // For YouTube: ask our API for the direct stream URL, then download that directly
+            setItems(prev => prev.map(p => p.id === item.id ? { ...p, progress: 5 } : p));
+            const metaRes = await fetch(`/api/download/youtube?url=${encodeURIComponent(item.url)}`);
+            if (!metaRes.ok) throw new Error(`YouTube extraction failed: HTTP ${metaRes.status}`);
+            const ytData = await metaRes.json();
+            finalDownloadUrl = ytData.url;
+            finalFilename = ytData.filename || item.filename;
+            setItems(prev => prev.map(p => p.id === item.id ? { ...p, filename: finalFilename, progress: 10 } : p));
+          }
 
-          // Stream the response with progress tracking
+          // Download the file — try direct first, fallback to proxy for CORS errors
+          let res: Response;
+          try {
+            res = await fetch(finalDownloadUrl);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          } catch (corsErr) {
+            if (!isYT) {
+              // Fallback to server proxy for CORS-blocked URLs
+              res = await fetch(`/api/proxy?url=${encodeURIComponent(finalDownloadUrl)}`);
+              if (!res.ok) throw new Error(`Proxy failed: HTTP ${res.status}`);
+            } else {
+              throw corsErr;
+            }
+          }
+
+          // Stream with progress tracking
           const reader = res.body?.getReader();
           const contentLength = +(res.headers.get('Content-Length') || 0);
           let receivedLength = 0;
@@ -114,21 +136,19 @@ export default function Home() {
             receivedLength += value.length;
             const progress = contentLength
               ? Math.min(99, Math.round((receivedLength / contentLength) * 100))
-              : 50;
-            setItems(prev => prev.map(p => p.id === item.id ? { ...p, progress } : p));
+              : Math.min(90, (receivedLength / 1024 / 100)); // rough progress for unknown size
+            setItems(prev => prev.map(p => p.id === item.id ? { ...p, progress: isYT ? 10 + progress * 0.9 : progress } : p));
           }
 
           const blob = new Blob(chunks);
 
           if (mode === 'batch') {
-            // Add to ZIP
-            zip.file(item.filename, blob);
+            zip.file(finalFilename, blob);
           } else {
-            // Single mode: trigger direct download
             const objUrl = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = objUrl;
-            a.download = item.filename;
+            a.download = finalFilename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
