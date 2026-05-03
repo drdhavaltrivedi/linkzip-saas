@@ -25,12 +25,13 @@ export async function POST(req: NextRequest) {
                 'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
               ]
             });
+            const infoData: any = info;
             return { 
               url, 
-              filename: `${info.title}.mp4`, 
+              filename: `${infoData.title}.mp4`, 
               success: true, 
               type: 'video',
-              thumbnail: info.thumbnail
+              thumbnail: infoData.thumbnail
             };
           } catch (ytErr) {
             console.error("Meta YT-DL error:", ytErr);

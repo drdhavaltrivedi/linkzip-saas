@@ -21,7 +21,8 @@ export async function GET(req: NextRequest) {
       ]
     });
 
-    const directUrl = output.url || output.formats.find((f: any) => f.ext === 'mp4' && f.acodec !== 'none' && f.vcodec !== 'none')?.url;
+    const outputData: any = output;
+    const directUrl = outputData.url || outputData.formats?.find((f: any) => f.ext === 'mp4' && f.acodec !== 'none' && f.vcodec !== 'none')?.url;
 
     if (!directUrl) {
       throw new Error("Could not extract direct URL");
