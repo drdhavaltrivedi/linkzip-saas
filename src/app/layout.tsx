@@ -14,6 +14,9 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "LinkZip Pro - Universal Link & Video Downloader | Bundle PDFs, YouTube, & Files",
+  verification: {
+    google: "TKFcs2pr_jFHEfSVZDIi3B_ErR43ykkoifeITpm0ago",
+  },
   description: "The ultimate tool to download and bundle YouTube videos, research papers, PDFs, and files from multiple links into a single high-speed ZIP archive. Perfect for researchers and students.",
   keywords: [
     "LinkZip", "bulk downloader", "youtube downloader", "pdf batch download", 
