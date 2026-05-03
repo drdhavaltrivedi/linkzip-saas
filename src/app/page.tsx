@@ -96,9 +96,9 @@ export default function Home() {
         if (!results[i]?.success) return;
 
         try {
-          const downloadUrl = item.type === 'video' && item.url.includes('youtube.com') 
+          const downloadUrl = item.type === 'video' && (item.url.includes('youtube.com') || item.url.includes('youtu.be'))
             ? `/api/download/youtube?url=${encodeURIComponent(item.url)}`
-            : item.url;
+            : `/api/proxy?url=${encodeURIComponent(item.url)}`;
 
           const res = await fetch(downloadUrl);
           if (!res.ok) throw new Error("Failed to download");
