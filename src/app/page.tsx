@@ -87,9 +87,10 @@ export default function Home() {
       setItems(workingItems);
 
       const zip = new JSZip();
+      let zipFileCount = 0;
 
       // Step 3: Download each file in parallel
-      await Promise.all(workingItems.map(async (item, i) => {
+      await Promise.all(workingItems.map(async (item) => {
         if (item.status === 'error') return;
 
         try {
@@ -102,7 +103,10 @@ export default function Home() {
             // Stream through our API — CDN URL is IP-bound to the server, browser can't fetch it directly
             setItems(prev => prev.map(p => p.id === item.id ? { ...p, progress: 5 } : p));
             res = await fetch(`/api/download/youtube?url=${encodeURIComponent(item.url)}`);
-            if (!res.ok) throw new Error(`YouTube download failed: HTTP ${res.status}`);
+            if (!res.ok) {
+              const errText = await res.text();
+              throw new Error(errText || `HTTP ${res.status}`);
+            }
             const cd = res.headers.get('Content-Disposition');
             const match = cd?.match(/filename="?([^"]+)"?/);
             if (match) finalFilename = match[1];
@@ -112,7 +116,7 @@ export default function Home() {
             try {
               res = await fetch(item.url);
               if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            } catch (corsErr) {
+            } catch {
               res = await fetch(`/api/proxy?url=${encodeURIComponent(item.url)}`);
               if (!res.ok) throw new Error(`Proxy failed: HTTP ${res.status}`);
             }
@@ -120,18 +124,20 @@ export default function Home() {
 
           // Stream with progress tracking
           const reader = res.body?.getReader();
+          if (!reader) throw new Error('No response body');
           const contentLength = +(res.headers.get('Content-Length') || 0);
           let receivedLength = 0;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const chunks: any[] = [];
 
           while (true) {
-            const { done, value } = await reader!.read();
+            const { done, value } = await reader.read();
             if (done) break;
             chunks.push(value);
             receivedLength += value.length;
             const progress = contentLength
               ? Math.min(99, Math.round((receivedLength / contentLength) * 100))
-              : Math.min(90, (receivedLength / 1024 / 100)); // rough progress for unknown size
+              : Math.min(90, receivedLength / 1024 / 100);
             setItems(prev => prev.map(p => p.id === item.id ? { ...p, progress: isYT ? 10 + progress * 0.9 : progress } : p));
           }
 
@@ -139,6 +145,7 @@ export default function Home() {
 
           if (mode === 'batch') {
             zip.file(finalFilename, blob);
+            zipFileCount++;
           } else {
             const objUrl = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -156,13 +163,13 @@ export default function Home() {
         } catch (err: any) {
           console.error(`Failed ${item.url}:`, err);
           setItems(prev => prev.map(p =>
-            p.id === item.id ? { ...p, status: 'error', error: err.message || 'Download Failed' } : p
+            p.id === item.id ? { ...p, status: 'error', progress: 0, error: err.message || 'Download failed' } : p
           ));
         }
       }));
 
-      // Step 4: Generate & trigger ZIP download (batch mode only)
-      if (mode === 'batch') {
+      // Step 4: Generate & trigger ZIP download (batch mode only, only if something was downloaded)
+      if (mode === 'batch' && zipFileCount > 0) {
         setIsZipping(true);
         const content = await zip.generateAsync({ type: "blob" });
         const zipUrl = window.URL.createObjectURL(content);
@@ -258,17 +265,23 @@ export default function Home() {
                 <div key={item.id} className="glass glass-hover rounded-2xl p-4 flex items-center gap-4">
                   <div className={cn(
                     "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden",
-                    item.status === 'completed' ? "bg-green-500/10 text-green-500" : "bg-primary/10 text-primary"
+                    item.status === 'completed' ? "bg-green-500/10 text-green-500" :
+                    item.status === 'error' ? "bg-red-500/10 text-red-500" : "bg-primary/10 text-primary"
                   )}>
-                    {item.thumbnail ? <img src={item.thumbnail} className="w-full h-full object-cover" /> : getIcon(item.type)}
+                    {item.thumbnail ? <img src={item.thumbnail} className="w-full h-full object-cover" /> :
+                     item.status === 'error' ? <AlertCircle size={20} /> : getIcon(item.type)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate text-sm">{item.filename}</p>
-                    <div className="h-1 bg-white/5 rounded-full overflow-hidden mt-1">
-                      <motion.div className="h-full bg-primary" animate={{ width: `${item.progress}%` }} />
-                    </div>
+                    {item.status === 'error'
+                      ? <p className="text-red-400 text-xs mt-1 truncate">{item.error}</p>
+                      : <div className="h-1 bg-white/5 rounded-full overflow-hidden mt-1">
+                          <motion.div className={cn("h-full", item.status === 'completed' ? "bg-green-500" : "bg-primary")} animate={{ width: `${item.progress}%` }} />
+                        </div>
+                    }
                   </div>
                   {item.status === 'completed' && <CheckCircle2 className="text-green-500" size={20} />}
+                  {item.status === 'error' && <AlertCircle className="text-red-500 shrink-0" size={20} />}
                 </div>
               ))}
             </motion.div>

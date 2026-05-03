@@ -71,7 +71,8 @@ export async function GET(req: NextRequest) {
     return new Response(streamRes.body, { headers });
 
   } catch (error: any) {
-    console.error('YT-DL ERROR:', error.message);
-    return new Response('Failed to stream video: ' + error.message, { status: 500 });
+    const msg = error?.stderr || error?.shortMessage || error?.message || String(error);
+    console.error('YT-DL ERROR:', msg);
+    return new Response('Failed to stream video: ' + msg, { status: 500 });
   }
 }
