@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import ytdl from 'ytdl-core';
+import youtubedl from 'youtube-dl-exec';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,17 +12,30 @@ export async function POST(req: NextRequest) {
     const results = await Promise.all(urls.map(async (url, index) => {
       try {
         // Check if it's a YouTube URL
-        const isYouTube = ytdl.validateURL(url);
+        const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
         
         if (isYouTube) {
-          const info = await ytdl.getBasicInfo(url);
-          return { 
-            url, 
-            filename: `${info.videoDetails.title}.mp4`, 
-            success: true, 
-            type: 'video',
-            thumbnail: info.videoDetails.thumbnails[0]?.url 
-          };
+          try {
+            const info = await youtubedl(url, {
+              dumpSingleJson: true,
+              noWarnings: true,
+              skipDownload: true,
+              addHeader: [
+                'referer:youtube.com',
+                'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+              ]
+            });
+            return { 
+              url, 
+              filename: `${info.title}.mp4`, 
+              success: true, 
+              type: 'video',
+              thumbnail: info.thumbnail
+            };
+          } catch (ytErr) {
+            console.error("Meta YT-DL error:", ytErr);
+            // Fallback gracefully
+          }
         }
 
         const response = await fetch(url, {
