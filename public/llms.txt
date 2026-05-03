@@ -1,0 +1,20 @@
+# LinkZip Pro - Universal Bulk Downloader
+
+## Mission & Purpose
+LinkZip is a premium SaaS web application designed to help researchers, students, and professionals download and bundle multiple URLs into a single ZIP archive instantly. 
+
+## Features
+- **YouTube Video Downloads**: Capable of extracting direct MP4 downloads from YouTube links.
+- **PDF & Document Batching**: Automatically fetches and bundles research papers from links.
+- **Image & Media Bundling**: Zips images and other media files seamlessly.
+- **CORS Bypass**: Utilizes an advanced Edge Proxy to fetch files from restrictive academic domains.
+- **No Installation Required**: Works entirely in the browser using JSZip, directly delivering a `LinkZip_Bundle.zip` to the user's hard drive.
+
+## Usage
+Users simply paste a list of URLs (one per line) into the main text area, select "Batch ZIP", and click download. The app handles metadata extraction, parallel downloading, and high-speed zipping.
+
+## Target Audience
+Researchers needing to archive papers, developers needing bulk assets, and anyone who wants to convert a list of URLs into actual files on their computer.
+
+## Technical Details
+Built with Next.js 16 (App Router), Tailwind CSS, Framer Motion, and yt-dlp. Hosted on Vercel Edge network for ultra-fast performance.

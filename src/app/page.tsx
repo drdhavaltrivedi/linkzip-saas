@@ -260,17 +260,45 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        <footer className="pt-12 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 text-foreground/40 text-sm">
+        {/* SEO Content Block — visible to search engines, subtle to users */}
+        <section className="mt-16 pt-12 border-t border-white/5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-foreground/30 text-xs leading-relaxed">
+            <div>
+              <h2 className="text-foreground/50 font-semibold mb-2 text-sm">What is LinkZip Pro?</h2>
+              <p>LinkZip is the fastest bulk URL downloader and ZIP bundler available online. Paste any number of links — YouTube videos, research PDFs, academic papers, images — and download them all as a single ZIP archive in one click.</p>
+            </div>
+            <div>
+              <h2 className="text-foreground/50 font-semibold mb-2 text-sm">Supported File Types</h2>
+              <p>Works with PDFs, MP4 videos, MP3 audio, JPG/PNG images, Word docs, and any other direct file link. YouTube videos are supported via yt-dlp extraction. Multiple links to ZIP — no software installation required.</p>
+            </div>
+            <div>
+              <h2 className="text-foreground/50 font-semibold mb-2 text-sm">Who Uses LinkZip?</h2>
+              <p>Researchers downloading academic papers in bulk, students archiving course materials, developers collecting assets, and professionals building data sets. Available globally — works in USA, India, UK, Europe, and worldwide.</p>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-2">
+            {["bulk url downloader", "youtube to zip", "pdf batch download", "multiple links downloader", "url to zip converter", "research paper downloader", "file bundler online", "download all links"].map(tag => (
+              <span key={tag} className="px-2 py-1 rounded-md bg-white/5 text-foreground/20 text-[10px] border border-white/5">{tag}</span>
+            ))}
+          </div>
+        </section>
+
+        <footer className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 text-foreground/40 text-sm">
           <div className="flex items-center gap-2">
             <img src="/logo.png" className="w-8 h-8 object-contain rounded-lg shadow-lg" alt="LinkZip" />
-            <span className="font-bold tracking-tight text-white/80">LinkZip Pro</span>
+            <div>
+              <span className="font-bold tracking-tight text-white/80 block">LinkZip Pro</span>
+              <span className="text-[10px]">© 2026 · Universal Bulk Downloader</span>
+            </div>
           </div>
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-6">
+             <a href="https://linkzip-saas.vercel.app/sitemap.xml" className="hover:text-primary transition-colors">Sitemap</a>
              <a href="#" className="hover:text-primary transition-colors">Privacy</a>
              <a href="#" className="hover:text-primary transition-colors">Terms</a>
              <div className="h-4 w-[1px] bg-white/10" />
-             <a href="#" className="flex items-center gap-2 hover:text-foreground transition-colors">
-                <Globe size={16} /> GitHub
+             <a href="https://github.com/drdhavaltrivedi/linkzip-saas" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground transition-colors">
+                <Globe size={14} /> GitHub
              </a>
           </div>
         </footer>
