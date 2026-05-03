@@ -94,7 +94,7 @@ export default function Home() {
 
         try {
           const isYT = item.url.includes('youtube.com') || item.url.includes('youtu.be');
-          const downloadUrl = (item.type === 'video' && isYT)
+          const downloadUrl = isYT
             ? `/api/download/youtube?url=${encodeURIComponent(item.url)}`
             : `/api/proxy?url=${encodeURIComponent(item.url)}`;
 

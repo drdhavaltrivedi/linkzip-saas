@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
         const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
         
         if (isYouTube) {
+          // Always mark as video — even if title lookup fails, we can still download it
           try {
             const info = await youtubedl(url, {
               dumpSingleJson: true,
@@ -28,14 +29,22 @@ export async function POST(req: NextRequest) {
             const infoData: any = info;
             return { 
               url, 
-              filename: `${infoData.title}.mp4`, 
+              filename: `${infoData.title || 'youtube_video'}.mp4`, 
               success: true, 
               type: 'video',
               thumbnail: infoData.thumbnail
             };
           } catch (ytErr) {
             console.error("Meta YT-DL error:", ytErr);
-            // Fallback gracefully
+            // Fallback: still mark as video so download routes correctly
+            const videoId = url.match(/(?:v=|youtu\.be\/)([^&?/]+)/)?.[1] || 'video';
+            return {
+              url,
+              filename: `youtube_${videoId}.mp4`,
+              success: true,
+              type: 'video',
+              thumbnail: null
+            };
           }
         }
 
