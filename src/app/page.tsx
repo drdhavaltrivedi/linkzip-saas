@@ -9,7 +9,6 @@ import {
   CheckCircle2, 
   AlertCircle, 
   FileArchive,
-  Github as GithubIcon,
   Zap,
   Globe,
   Plus
@@ -270,7 +269,7 @@ export default function Home() {
              <a href="#" className="hover:text-primary transition-colors">Terms of Service</a>
              <div className="h-4 w-[1px] bg-white/10" />
              <a href="#" className="flex items-center gap-2 hover:text-foreground transition-colors">
-                <GithubIcon size={16} />
+                <Globe size={16} />
                 GitHub
              </a>
           </div>
