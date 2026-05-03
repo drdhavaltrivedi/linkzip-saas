@@ -94,32 +94,27 @@ export default function Home() {
 
         try {
           const isYT = item.url.includes('youtube.com') || item.url.includes('youtu.be');
-          let finalDownloadUrl = item.url;
           let finalFilename = item.filename;
 
-          if (isYT) {
-            // For YouTube: ask our API for the direct stream URL, then download that directly
-            setItems(prev => prev.map(p => p.id === item.id ? { ...p, progress: 5 } : p));
-            const metaRes = await fetch(`/api/download/youtube?url=${encodeURIComponent(item.url)}`);
-            if (!metaRes.ok) throw new Error(`YouTube extraction failed: HTTP ${metaRes.status}`);
-            const ytData = await metaRes.json();
-            finalDownloadUrl = ytData.url;
-            finalFilename = ytData.filename || item.filename;
-            setItems(prev => prev.map(p => p.id === item.id ? { ...p, filename: finalFilename, progress: 10 } : p));
-          }
-
-          // Download the file — try direct first, fallback to proxy for CORS errors
+          // Download the file
           let res: Response;
-          try {
-            res = await fetch(finalDownloadUrl);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          } catch (corsErr) {
-            if (!isYT) {
-              // Fallback to server proxy for CORS-blocked URLs
-              res = await fetch(`/api/proxy?url=${encodeURIComponent(finalDownloadUrl)}`);
+          if (isYT) {
+            // Stream through our API — CDN URL is IP-bound to the server, browser can't fetch it directly
+            setItems(prev => prev.map(p => p.id === item.id ? { ...p, progress: 5 } : p));
+            res = await fetch(`/api/download/youtube?url=${encodeURIComponent(item.url)}`);
+            if (!res.ok) throw new Error(`YouTube download failed: HTTP ${res.status}`);
+            const cd = res.headers.get('Content-Disposition');
+            const match = cd?.match(/filename="?([^"]+)"?/);
+            if (match) finalFilename = match[1];
+            setItems(prev => prev.map(p => p.id === item.id ? { ...p, filename: finalFilename, progress: 10 } : p));
+          } else {
+            // Try direct first, fallback to proxy for CORS errors
+            try {
+              res = await fetch(item.url);
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            } catch (corsErr) {
+              res = await fetch(`/api/proxy?url=${encodeURIComponent(item.url)}`);
               if (!res.ok) throw new Error(`Proxy failed: HTTP ${res.status}`);
-            } else {
-              throw corsErr;
             }
           }
 

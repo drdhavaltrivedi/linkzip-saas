@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Extract the direct streamable URL via yt-dlp
+    // Step 1: Extract all video info & formats via yt-dlp
     const output = await youtubedl(url, {
       dumpSingleJson: true,
       noCheckCertificates: true,
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
     const data: any = output;
 
-    // Find the best combined audio+video format (MP4 preferred)
+    // Step 2: Find best combined audio+video format (MP4 preferred, sorted by quality)
     let directUrl: string | null = null;
 
     if (data.url) {
@@ -45,13 +45,33 @@ export async function GET(req: NextRequest) {
       return new Response('No playable format found', { status: 404 });
     }
 
-    // Return the direct URL as JSON — the client will download it directly
-    // This avoids Vercel's function bandwidth limits and timeout issues
     const videoTitle = (data.title || 'youtube_video').replace(/[^a-zA-Z0-9 _-]/g, '').trim();
-    return Response.json({ url: directUrl, title: videoTitle, filename: `${videoTitle}.mp4` });
+    const filename = `${videoTitle}.mp4`;
+
+    // Step 3: Proxy the stream with correct YouTube CDN headers
+    const streamRes = await fetch(directUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.youtube.com/',
+        'Origin': 'https://www.youtube.com'
+      }
+    });
+
+    if (!streamRes.ok) {
+      return new Response(`Stream fetch failed: ${streamRes.status}`, { status: 502 });
+    }
+
+    const headers: HeadersInit = {
+      'Content-Type': 'video/mp4',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    };
+    const cl = streamRes.headers.get('Content-Length');
+    if (cl) headers['Content-Length'] = cl;
+
+    return new Response(streamRes.body, { headers });
 
   } catch (error: any) {
     console.error('YT-DL ERROR:', error.message);
-    return new Response('Failed to extract video: ' + error.message, { status: 500 });
+    return new Response('Failed to stream video: ' + error.message, { status: 500 });
   }
 }
