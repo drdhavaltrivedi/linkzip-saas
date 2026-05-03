@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import ytdl from 'ytdl-core';
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,36 +9,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid URLs provided' }, { status: 400 });
     }
 
-    // Since we are running on Vercel, we can't easily do a long-running ZIP generation
-    // and stream it back without a specialized service or complexity.
-    // However, for this SaaS, we will process small batches or provide a logic
-    // that the client-side can also help with.
-    
-    // For the "SaaS" feel, we'll implement a robust extraction logic.
     const results = await Promise.all(urls.map(async (url, index) => {
       try {
+        // Check if it's a YouTube URL
+        const isYouTube = ytdl.validateURL(url);
+        
+        if (isYouTube) {
+          const info = await ytdl.getBasicInfo(url);
+          return { 
+            url, 
+            filename: `${info.videoDetails.title}.mp4`, 
+            success: true, 
+            type: 'video',
+            thumbnail: info.videoDetails.thumbnails[0]?.url 
+          };
+        }
+
         const response = await fetch(url, {
-          method: 'HEAD', // Just get headers first
+          method: 'HEAD',
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
           }
         });
 
         let filename = `file_${index + 1}`;
-        
-        // 1. Content-Disposition
         const cd = response.headers.get('content-disposition');
         if (cd) {
           const match = cd.match(/filename=(.+)/);
           if (match) filename = match[1].replace(/["']/g, '');
         } else {
-          // 2. URL Path
           const path = new URL(url).pathname;
           const base = path.split('/').pop();
           if (base && base.includes('.')) filename = base;
         }
 
-        return { url, filename, success: true };
+        // Detect type based on extension
+        let type = 'file';
+        if (filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)) type = 'image';
+        if (filename.match(/\.(pdf)$/i)) type = 'pdf';
+        if (filename.match(/\.(mp4|mkv|webm)$/i)) type = 'video';
+        if (filename.match(/\.(mp3|wav|ogg)$/i)) type = 'audio';
+
+        return { url, filename, success: true, type };
       } catch (err) {
         return { url, success: false, error: 'Failed to reach URL' };
       }
