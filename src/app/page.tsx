@@ -82,10 +82,10 @@ export default function Home() {
       
       const zip = new JSZip();
       
-      const processedItems = items.map((item, i) => ({
+      const processedItems: DownloadItem[] = items.map((item, i) => ({
         ...item,
         filename: results[i]?.filename || `file_${i+1}`,
-        status: results[i]?.success ? 'downloading' : 'error',
+        status: (results[i]?.success ? 'downloading' : 'error') as DownloadItem['status'],
         type: results[i]?.type || 'file',
         thumbnail: results[i]?.thumbnail,
         error: results[i]?.success ? undefined : results[i]?.error
@@ -180,8 +180,8 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/10 text-primary text-sm font-medium mb-4"
           >
-            <Zap size={14} className="fill-current" />
-            <span>LinkZip Pro v2.0</span>
+            <img src="/logo.png" className="w-5 h-5 object-contain" alt="LinkZip Logo" />
+            <span>LinkZip Pro v2.1</span>
           </motion.div>
           <motion.h1 
             className="text-5xl md:text-7xl font-bold tracking-tight"
@@ -227,8 +227,13 @@ export default function Home() {
             )}
           >
             {isProcessing ? <Loader2 className="animate-spin" /> : mode === 'batch' ? <FileArchive /> : <Download />}
-            {isProcessing ? "Processing..." : mode === 'batch' ? "Download & ZIP Bundle" : "Download Now"}
+            {isProcessing ? "Processing Bundle..." : mode === 'batch' ? "Download All in One ZIP" : "Download Now"}
           </button>
+          {mode === 'batch' && (
+            <p className="text-center text-xs text-foreground/30 flex items-center justify-center gap-1">
+              <CheckCircle2 size={12} /> All PDFs, videos, and files will be bundled into a single ZIP archive.
+            </p>
+          )}
         </motion.div>
 
         <AnimatePresence>
@@ -257,8 +262,8 @@ export default function Home() {
 
         <footer className="pt-12 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 text-foreground/40 text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center text-white font-black text-xs">LZ</div>
-            <span>© 2026 LinkZip Pro. All Media Supported.</span>
+            <img src="/logo.png" className="w-8 h-8 object-contain rounded-lg shadow-lg" alt="LinkZip" />
+            <span className="font-bold tracking-tight text-white/80">LinkZip Pro</span>
           </div>
           <div className="flex items-center gap-8">
              <a href="#" className="hover:text-primary transition-colors">Privacy</a>

@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "LinkZip SaaS - Premium Research Bundle Tool",
   description: "Download and bundle research papers and links into a ZIP archive instantly.",
+  icons: {
+    icon: "/favicon.png",
+  }
 };
 
 export default function RootLayout({
