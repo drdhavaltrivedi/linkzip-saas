@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       thumbnail: videoDetails.thumbnails?.[videoDetails.thumbnails.length - 1]?.url || '',
       duration: videoDetails.durationInSec || 0,
       uploader: videoDetails.channel?.name || '',
-      viewCount: parseInt(videoDetails.views || '0'),
+      viewCount: typeof videoDetails.views === 'number' ? videoDetails.views : parseInt(String(videoDetails.views || '0')),
       formats
     });
 
