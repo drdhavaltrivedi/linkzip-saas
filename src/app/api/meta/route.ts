@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import youtubedl from 'youtube-dl-exec';
+import play from 'play-dl';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,27 +15,18 @@ export async function POST(req: NextRequest) {
         const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
         
         if (isYouTube) {
-          // Always mark as video — even if title lookup fails, we can still download it
           try {
-            const info = await youtubedl(url, {
-              dumpSingleJson: true,
-              noWarnings: true,
-              skipDownload: true,
-              addHeader: [
-                'referer:youtube.com',
-                'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-              ]
-            });
-            const infoData: any = info;
+            // play-dl is much more reliable on cloud IPs than yt-dlp
+            const info = await play.video_info(url);
             return { 
               url, 
-              filename: `${infoData.title || 'youtube_video'}.mp4`, 
+              filename: `${info.video_details.title || 'youtube_video'}.mp4`, 
               success: true, 
               type: 'video',
-              thumbnail: infoData.thumbnail
+              thumbnail: info.video_details.thumbnails?.[info.video_details.thumbnails.length - 1]?.url || null
             };
-          } catch (ytErr) {
-            console.error("Meta YT-DL error:", ytErr);
+          } catch (ytErr: any) {
+            console.error("Meta play-dl error:", ytErr.message);
             // Fallback: still mark as video so download routes correctly
             const videoId = url.match(/(?:v=|youtu\.be\/)([^&?/]+)/)?.[1] || 'video';
             return {
