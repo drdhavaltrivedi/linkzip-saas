@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import play from 'play-dl';
+import { Innertube, ClientType } from 'youtubei.js';
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,18 +16,20 @@ export async function POST(req: NextRequest) {
         
         if (isYouTube) {
           try {
-            // play-dl is much more reliable on cloud IPs than yt-dlp
-            const info = await play.video_info(url);
+            // youtubei.js ANDROID client bypasses all bot-detection on cloud IPs
+            const videoId = url.match(/(?:v=|youtu\.be\/|shorts\/)([^&?/]+)/)?.[1];
+            if (!videoId) throw new Error('Cannot extract video ID');
+            const yt = await Innertube.create({ generate_session_locally: true });
+            const info = await yt.getBasicInfo(videoId, { client: ClientType.ANDROID });
             return { 
               url, 
-              filename: `${info.video_details.title || 'youtube_video'}.mp4`, 
+              filename: `${info.basic_info.title || 'youtube_video'}.mp4`, 
               success: true, 
               type: 'video',
-              thumbnail: info.video_details.thumbnails?.[info.video_details.thumbnails.length - 1]?.url || null
+              thumbnail: info.basic_info.thumbnail?.[info.basic_info.thumbnail.length - 1]?.url || null
             };
           } catch (ytErr: any) {
-            console.error("Meta play-dl error:", ytErr.message);
-            // Fallback: still mark as video so download routes correctly
+            console.error("Meta YT error:", ytErr.message);
             const videoId = url.match(/(?:v=|youtu\.be\/)([^&?/]+)/)?.[1] || 'video';
             return {
               url,

@@ -1,50 +1,51 @@
 import { NextRequest } from 'next/server';
-import play from 'play-dl';
+import { Innertube, ClientType } from 'youtubei.js';
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get('url');
   if (!url) return new Response('Missing URL', { status: 400 });
 
   try {
-    const info = await play.video_info(url);
-    const videoDetails = info.video_details;
+    // Extract video ID from URL
+    const videoId = url.match(/(?:v=|youtu\.be\/|shorts\/)([^&?/]+)/)?.[1];
+    if (!videoId) return new Response('Invalid YouTube URL', { status: 400 });
 
-    // Build a curated list of combined audio+video formats
+    const yt = await Innertube.create({ generate_session_locally: true });
+    const info = await yt.getBasicInfo(videoId, { client: ClientType.ANDROID });
+
+    const videoDetails = info.basic_info;
     const formats: { formatId: string; label: string; height: number; ext: string; filesize: number | null }[] = [];
 
-    // play-dl provides formats that we need to filter for combined ones
-    // Note: YouTube often serves dash formats. play-dl helps us find the right ones.
-    const allFormats = await info.format;
-    
+    // Combined formats (audio+video) — perfect for direct download
+    const combinedFormats = info.streaming_data?.formats || [];
     const seen = new Set<string>();
-    allFormats
-      .filter((f: any) => f.url && f.hasVideo && f.hasAudio && f.qualityLabel)
+
+    combinedFormats
       .sort((a: any, b: any) => (b.height || 0) - (a.height || 0))
       .forEach((f: any) => {
-        const key = `${f.height}p`;
+        const key = `${f.height || 0}p`;
         if (!seen.has(key)) {
           seen.add(key);
           formats.push({
             formatId: f.itag?.toString() || 'best',
-            label: f.qualityLabel || `${f.height}p`,
+            label: f.quality_label || `${f.height || '?'}p`,
             height: f.height || 0,
-            ext: 'mp4', // Most combined formats in play-dl are mp4 compatible
-            filesize: f.contentLength ? parseInt(f.contentLength) : null
+            ext: 'mp4',
+            filesize: f.content_length ? parseInt(f.content_length) : null
           });
         }
       });
 
-    // Fallback: if no combined formats found via filter, add a 'best' option
     if (formats.length === 0) {
       formats.push({ formatId: 'best', label: 'Best Available', height: 0, ext: 'mp4', filesize: null });
     }
 
     return Response.json({
       title: videoDetails.title || 'Unknown Video',
-      thumbnail: videoDetails.thumbnails?.[videoDetails.thumbnails.length - 1]?.url || '',
-      duration: videoDetails.durationInSec || 0,
-      uploader: videoDetails.channel?.name || '',
-      viewCount: typeof videoDetails.views === 'number' ? videoDetails.views : parseInt(String(videoDetails.views || '0')),
+      thumbnail: videoDetails.thumbnail?.[videoDetails.thumbnail.length - 1]?.url || '',
+      duration: videoDetails.duration || 0,
+      uploader: videoDetails.channel?.name || videoDetails.author || '',
+      viewCount: typeof videoDetails.view_count === 'number' ? videoDetails.view_count : parseInt(String(videoDetails.view_count || '0')),
       formats
     });
 

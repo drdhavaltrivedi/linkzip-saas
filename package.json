@@ -21,7 +21,8 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "tailwind-merge": "^3.5.0",
-    "youtube-dl-exec": "^3.1.5"
+    "youtube-dl-exec": "^3.1.5",
+    "youtubei.js": "^17.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

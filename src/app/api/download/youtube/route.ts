@@ -1,71 +1,52 @@
 import { NextRequest } from 'next/server';
-import play from 'play-dl';
+import { Innertube, ClientType } from 'youtubei.js';
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get('url');
   const formatId = req.nextUrl.searchParams.get('format');
 
-  if (!url) {
-    return new Response('Invalid YouTube URL', { status: 400 });
-  }
+  if (!url) return new Response('Invalid YouTube URL', { status: 400 });
 
   try {
-    const info = await play.video_info(url);
-    const videoTitle = (info.video_details.title || 'youtube_video').replace(/[^a-zA-Z0-9 _-]/g, '').trim();
-    const filename = `${videoTitle}.mp4`;
+    // Extract video ID
+    const videoId = url.match(/(?:v=|youtu\.be\/|shorts\/)([^&?/]+)/)?.[1];
+    if (!videoId) return new Response('Invalid YouTube URL format', { status: 400 });
 
-    let directUrl: string | null = null;
-    let contentLength: string | null = null;
+    const yt = await Innertube.create({ generate_session_locally: true });
+    const info = await yt.getBasicInfo(videoId, { client: ClientType.ANDROID });
 
+    const title = (info.basic_info.title || 'youtube_video').replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+    const filename = `${title}.mp4`;
+
+    // Use youtubei.js's own streaming — it handles n-parameter decryption correctly
+    const downloadOptions: any = {
+      type: 'videoandaudio',
+      quality: 'best',
+      format: 'mp4',
+      client: ClientType.ANDROID
+    };
+
+    // If a specific itag was requested, pick that format
     if (formatId && formatId !== 'best') {
-      // Find the specific itag format
-      const format = (await info.format).find(f => f.itag?.toString() === formatId);
-      if (format && format.url) {
-        directUrl = format.url;
-        contentLength = format.contentLength || null;
+      const combinedFormats = info.streaming_data?.formats || [];
+      const chosenFormat = combinedFormats.find((f: any) => f.itag?.toString() === formatId);
+      if (chosenFormat) {
+        // Override quality selection by using specific itag
+        downloadOptions.itag = parseInt(formatId);
       }
     }
 
-    if (!directUrl) {
-      // Fallback: pick the best combined format
-      const bestCombined = (await info.format)
-        .filter((f: any) => f.url && f.hasVideo && f.hasAudio)
-        .sort((a: any, b: any) => (b.height || 0) - (a.height || 0))[0];
-      
-      if (bestCombined) {
-        directUrl = bestCombined.url || null;
-        contentLength = bestCombined.contentLength || null;
-      }
-    }
+    const stream = await yt.download(videoId, downloadOptions);
 
-    if (!directUrl) {
-      return new Response('No playable format found', { status: 404 });
-    }
-
-    // Stream server-side — the signed CDN URL is IP-bound to this server
-    const streamRes = await fetch(directUrl, {
+    return new Response(stream as any, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.youtube.com/',
-        'Origin': 'https://www.youtube.com',
-      },
+        'Content-Type': 'video/mp4',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      }
     });
 
-    if (!streamRes.ok) {
-      return new Response(`Stream fetch failed: ${streamRes.status}`, { status: 502 });
-    }
-
-    const headers: HeadersInit = {
-      'Content-Type': 'video/mp4',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-    };
-    
-    const finalContentLength = streamRes.headers.get('Content-Length') || contentLength;
-    if (finalContentLength) headers['Content-Length'] = finalContentLength;
-
-    return new Response(streamRes.body, { headers });
   } catch (error: any) {
-    console.error('YT-DL ERROR:', error.message);
-    return new Response('Failed to stream video: ' + error.message, { status: 500 });
+    console.error('YT download error:', error.message);
+    return new Response('Failed to download video: ' + error.message, { status: 500 });
   }
 }
