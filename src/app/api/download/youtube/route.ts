@@ -29,8 +29,8 @@ export async function GET(req: NextRequest) {
     if (!directUrl) {
       // Fallback: pick the best combined format
       const bestCombined = (await info.format)
-        .filter(f => f.url && f.hasVideo && f.hasAudio)
-        .sort((a, b) => (b.height || 0) - (a.height || 0))[0];
+        .filter((f: any) => f.url && f.hasVideo && f.hasAudio)
+        .sort((a: any, b: any) => (b.height || 0) - (a.height || 0))[0];
       
       if (bestCombined) {
         directUrl = bestCombined.url || null;
